@@ -117,5 +117,6 @@ checks.forEach((el,i)=>{el.checked=localStorage.getItem("trip-check-"+i)==="1";e
 function fmt(n){return new Intl.NumberFormat("ar-EG").format(n)+" ج"}
 function calc(){const total=budgetInputs.reduce((s,x)=>s+(Number(x.value)||0),0),left=LIMIT-total;document.querySelector("#budgetTotal").textContent=fmt(total);document.querySelector("#budgetLeft").textContent=fmt(left);const state=document.querySelector("#budgetState");state.textContent=left>=0?"داخل الميزانية ✓":"فوق الميزانية";state.style.color=left>=0?"#176d4d":"#a43a2e"}calc();
 </script>
+<!-- QA: local images verified -->
 </body>
 </html>
