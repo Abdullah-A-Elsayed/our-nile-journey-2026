@@ -1,0 +1,69 @@
+name: Optimize Images
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/optimize-images.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow
+        run: pip install pillow
+
+      - name: Create fast WebP images
+        run: |
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+
+          jobs = {
+            "aswan-sunset.jpg": "aswan-sunset.webp",
+            "aswan-nile.jpg": "aswan-nile.webp",
+            "luxor-temple.jpg": "luxor-temple.webp",
+            "hatshepsut.jpg": "hatshepsut.webp",
+            "karnak.jpg": "karnak.webp",
+            "nubian-village.jpg": "nubian-village.webp",
+          }
+
+          src = Path("assets")
+          out = src / "fast"
+          out.mkdir(parents=True, exist_ok=True)
+
+          for source, target in jobs.items():
+              im = Image.open(src/source).convert("RGB")
+              im.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
+              im.save(out/target, "WEBP", quality=64, method=6)
+              print(target, im.size, (out/target).stat().st_size)
+          PY
+
+      - name: Verify optimized size budget
+        run: |
+          du -h assets/fast/*
+          total=$(du -cb assets/fast/*.webp | tail -1 | cut -f1)
+          echo "Total optimized travel images: $total bytes"
+          test "$total" -lt 1500000
+
+      - name: Commit optimized images
+        run: |
+          git config user.name "Abdullah Aly"
+          git config user.email "abdullah.ali26@hotmail.com"
+          git add assets/fast
+          git diff --cached --quiet && exit 0
+          git commit -m "Optimize travel images for fast mobile loading"
+          git push
