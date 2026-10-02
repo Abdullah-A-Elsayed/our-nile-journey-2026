@@ -78,7 +78,7 @@ for (const vp of viewports) {
     assert(img.naturalWidth > 0 && img.naturalHeight > 0, `${vp.name}: image did not decode/render: ${img.src}`);
     assert((img.src || "").startsWith("assets/fast/"), `${vp.name}: runtime image is not using optimized local asset: ${img.src}`);
   }
-  const familyImg = imageDiagnostics.find(x => (x.src || "").includes("family-v2.webp"));
+  const familyImg = imageDiagnostics.find(x => (x.src || "").includes("family-final.webp"));
   assert(familyImg && familyImg.naturalWidth > 0, `${vp.name}: family image is missing or broken`);
 
   const basic = await page.evaluate(() => {
@@ -112,7 +112,7 @@ for (const vp of viewports) {
   assert(basic.title.includes("رحلتنا على النيل"), `${vp.name}: unexpected title`);
   assert(basic.days === 5, `${vp.name}: expected 5 day cards, got ${basic.days}`);
   assert(basic.places === 4, `${vp.name}: expected 4 place tiles, got ${basic.places}`);
-  assert(basic.guides === 5, `${vp.name}: expected 5 guide stories, got ${basic.guides}`);
+  assert(basic.guides === 8, `${vp.name}: expected 8 guide stories, got ${basic.guides}`);
   assert(basic.budgetInputs === 5, `${vp.name}: expected 5 budget inputs`);
   assert(basic.checklist === 5, `${vp.name}: expected 5 checklist inputs`);
   assert(basic.budgetSum === 14000, `${vp.name}: default budget should total 14,000 EGP`);
