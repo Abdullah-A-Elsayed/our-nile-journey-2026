@@ -1,0 +1,45 @@
+name: Full Site QA
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "index.html"
+      - "qa.mjs"
+      - ".github/workflows/qa.yml"
+  workflow_dispatch:
+
+jobs:
+  browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start static site
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/site.log 2>&1 &
+          sleep 2
+          curl --fail http://127.0.0.1:4173/ > /dev/null
+
+      - name: Run browser QA
+        run: node qa.mjs
+
+      - name: Upload QA screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-qa
+          path: qa-artifacts/
+          if-no-files-found: ignore
