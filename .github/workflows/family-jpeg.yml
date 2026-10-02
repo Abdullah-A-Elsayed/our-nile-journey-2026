@@ -1,0 +1,43 @@
+name: Build Family JPEG
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/family-jpeg.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pillow
+      - name: Convert family image to JPEG
+        run: |
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          src=Path("assets/fast/family-v2.webp")
+          out=Path("assets/fast/family-v2.jpg")
+          im=Image.open(src).convert("RGB")
+          im.save(out,"JPEG",quality=82,optimize=True,progressive=True)
+          print("family-v2.jpg", im.size, out.stat().st_size)
+          assert out.stat().st_size < 180000
+          PY
+      - name: Commit JPEG
+        run: |
+          git config user.name "Abdullah Aly"
+          git config user.email "abdullah.ali26@hotmail.com"
+          git add assets/fast/family-v2.jpg
+          git diff --cached --quiet && exit 0
+          git commit -m "Add universal JPEG family photo"
+          git push
