@@ -1,0 +1,81 @@
+name: Localize Site Images
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/localize-images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  localize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download travel images locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          UA="OurNileJourney/1.0 (+https://github.com/Abdullah-A-Elsayed/our-nile-journey-2026)"
+          get_img() {
+            url="$1"
+            out="$2"
+            echo "Downloading $out"
+            curl --fail --location --retry 8 --retry-delay 5 --retry-all-errors -A "$UA" "$url" -o "$out"
+            test -s "$out"
+            bytes=$(wc -c < "$out")
+            if [ "$bytes" -lt 20000 ]; then
+              echo "Image too small: $out ($bytes bytes)"
+              exit 1
+            fi
+            file "$out"
+            sleep 3
+          }
+
+          get_img 'https://upload.wikimedia.org/wikipedia/commons/0/05/Sunset_over_the_Nile_River_near_Aswan%2C_Egypt_%284058070043%29.jpg' assets/aswan-sunset.jpg
+          get_img 'https://upload.wikimedia.org/wikipedia/commons/0/0d/River-Nile-near-Aswan.jpg' assets/aswan-nile.jpg
+          get_img 'https://upload.wikimedia.org/wikipedia/commons/2/2e/LuxorTemple1.jpg' assets/luxor-temple.jpg
+          get_img 'https://upload.wikimedia.org/wikipedia/commons/e/ec/Luxor_Temple_of_Hatshepsut_A.jpg' assets/hatshepsut.jpg
+          get_img 'https://upload.wikimedia.org/wikipedia/commons/3/32/Great_Hypostyle_Hall.jpg' assets/karnak.jpg
+          get_img 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Nubian_House%2C_Nagaa_Suhayl_Gharb%2C_AG%2C_EGY_%2848026634843%29.jpg' assets/nubian-village.jpg
+
+      - name: Point the site to local assets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("index.html")
+          s=p.read_text(encoding="utf-8")
+          replacements={
+            "https://upload.wikimedia.org/wikipedia/commons/0/05/Sunset_over_the_Nile_River_near_Aswan%2C_Egypt_%284058070043%29.jpg":"assets/aswan-sunset.jpg",
+            "https://upload.wikimedia.org/wikipedia/commons/0/0d/River-Nile-near-Aswan.jpg":"assets/aswan-nile.jpg",
+            "https://upload.wikimedia.org/wikipedia/commons/2/2e/LuxorTemple1.jpg":"assets/luxor-temple.jpg",
+            "https://upload.wikimedia.org/wikipedia/commons/e/ec/Luxor_Temple_of_Hatshepsut_A.jpg":"assets/hatshepsut.jpg",
+            "https://upload.wikimedia.org/wikipedia/commons/3/32/Great_Hypostyle_Hall.jpg":"assets/karnak.jpg",
+            "https://upload.wikimedia.org/wikipedia/commons/f/ff/Nubian_House%2C_Nagaa_Suhayl_Gharb%2C_AG%2C_EGY_%2848026634843%29.jpg":"assets/nubian-village.jpg",
+          }
+          for old,new in replacements.items():
+              s=s.replace(old,new)
+          p.write_text(s,encoding="utf-8")
+          assert "upload.wikimedia.org" not in s, "External Wikimedia image URL remains in index.html"
+          PY
+
+      - name: Commit localized assets
+        run: |
+          git config user.name "Abdullah Aly"
+          git config user.email "abdullah.ali26@hotmail.com"
+          git add assets index.html
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "Host travel images locally for reliable loading"
+            git push
+          fi
