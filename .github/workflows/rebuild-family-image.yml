@@ -1,0 +1,63 @@
+name: Rebuild Family Image
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "assets/family-b64/**"
+      - ".github/workflows/rebuild-family-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow
+        run: pip install pillow
+
+      - name: Rebuild and verify exact family image
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/fast
+          cat assets/family-b64/1.txt assets/family-b64/2.txt assets/family-b64/3.txt assets/family-b64/4.txt assets/family-b64/5.txt | tr -d '\n\r ' | base64 --decode > assets/fast/family-final.webp
+
+          echo "size=$(wc -c < assets/fast/family-final.webp)"
+          echo "sha256=$(sha256sum assets/fast/family-final.webp | cut -d' ' -f1)"
+
+          test "$(wc -c < assets/fast/family-final.webp)" -eq 23898
+          echo "65ed3bafe9c5d14dd6172dee935413c3087e86efd89ed2b525b2936d74ed7db6  assets/fast/family-final.webp" | sha256sum -c -
+
+          python - <<'PY'
+          from PIL import Image
+          p="assets/fast/family-final.webp"
+          im=Image.open(p)
+          im.load()
+          print("format=", im.format, "size=", im.size, "mode=", im.mode)
+          assert im.format == "WEBP"
+          assert im.size == (480, 1072)
+          PY
+
+      - name: Commit verified image
+        run: |
+          git config user.name "Abdullah Aly"
+          git config user.email "abdullah.ali26@hotmail.com"
+          git add assets/fast/family-final.webp
+          if git diff --cached --quiet; then
+            echo "Verified image already current"
+          else
+            git commit -m "Rebuild verified family photo"
+            git push
+          fi
