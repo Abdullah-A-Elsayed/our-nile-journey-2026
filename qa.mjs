@@ -52,6 +52,35 @@ for (const vp of viewports) {
     window.scrollTo(0, 0);
   });
 
+  // Wait for all lazy images to decode after scrolling and verify pixels exist.
+  await page.waitForTimeout(250);
+  const imageDiagnostics = await page.evaluate(async () => {
+    const imgs = [...document.querySelectorAll("img")];
+    await Promise.all(imgs.map(async img => {
+      if (!img.complete) await new Promise(resolve => {
+        img.addEventListener("load", resolve, { once:true });
+        img.addEventListener("error", resolve, { once:true });
+        setTimeout(resolve, 5000);
+      });
+      try { if (img.decode) await img.decode(); } catch {}
+    }));
+    return imgs.map(img => ({
+      src: img.getAttribute("src"),
+      currentSrc: img.currentSrc,
+      complete: img.complete,
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight
+    }));
+  });
+
+  for (const img of imageDiagnostics) {
+    assert(img.complete, `${vp.name}: image did not finish loading: ${img.src}`);
+    assert(img.naturalWidth > 0 && img.naturalHeight > 0, `${vp.name}: image did not decode/render: ${img.src}`);
+    assert((img.src || "").startsWith("assets/fast/"), `${vp.name}: runtime image is not using optimized local asset: ${img.src}`);
+  }
+  const familyImg = imageDiagnostics.find(x => (x.src || "").includes("family-v2.webp"));
+  assert(familyImg && familyImg.naturalWidth > 0, `${vp.name}: family image is missing or broken`);
+
   const basic = await page.evaluate(() => {
     const ids = [...document.querySelectorAll("[id]")].map(x => x.id);
     const hashLinks = [...document.querySelectorAll('a[href^="#"]')].map(a => a.getAttribute("href").slice(1));
@@ -139,7 +168,8 @@ for (const vp of viewports) {
     imageChecks,
     consoleErrors,
     pageErrors,
-    failedRequests
+    failedRequests,
+    imageDiagnostics
   });
 
   await page.evaluate(() => localStorage.clear());
